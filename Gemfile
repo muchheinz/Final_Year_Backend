@@ -5,6 +5,8 @@ ruby '2.7.0'
 
 gem 'headless'
 
+gem 'selenium-webdriver', '~> 3.142', '>= 3.142.7'
+
 gem 'rack-cors'
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
 gem 'rails', '~> 6.0.2', '>= 6.0.2.1'
