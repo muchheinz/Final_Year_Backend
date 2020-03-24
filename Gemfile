@@ -3,6 +3,10 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
 ruby '2.7.0'
 
+gem 'google-api-client', '~> 0.37.2'
+
+gem 'googleauth', '~> 0.11.0'
+
 gem 'headless'
 
 gem 'selenium-webdriver', '~> 3.142', '>= 3.142.7'

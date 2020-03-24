@@ -9,6 +9,6 @@
 (1..100).each do |i|
   company = Company.create(name: "company " + i.to_s)
   (0..rand(1..5)).each do |x|
-    Domain.create(name: "domain " + x.to_s, company: company)
+    Domain.create(urls: ["domain " + x.to_s], company: company)
   end
 end
