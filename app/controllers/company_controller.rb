@@ -23,7 +23,7 @@ class CompanyController < ApplicationController
 
   def show
     company = Company.find_by(id: params[:id])
-    render json: company, include: [:domain]
+    render json: {companies: [company, company.children]}
   end
 
   def scrape
@@ -35,8 +35,9 @@ class CompanyController < ApplicationController
     Selenium::WebDriver::Firefox::Service.driver_path = "/home/ciara/Desktop/drivers/geckodriver"
 
     @driver = Selenium::WebDriver.for :firefox, options: options
-    # companies = get_subs(params[:company])
-    companies = ["PSS World Medical", "McKesson Canada", "CoverMyMeds", "McKesson Medical-Surgical Inc.", "RelayHealth", "Uniprix", "Rexall", "Per-Se Technologies", "Medical Specialties Distributors, LLC", "CGSF Funding Corporation", "Norsk Medisinaldepot", "McKesson UK Finance I Limited", "LloydsPharmacy", "Laboratory Supply Company, Inc.", "MED3000, Inc.", "McKesson Corporation", "Onmark, Inc.", "IMcKesson", "Cypress Medical Products LLC", "Nadro S.A. de C.V.", "McKesson International Holdings Ltd", "Nexcura", "McKesson Specialty Health", "Physician Sales & Service, Inc.", "PST Services, Inc.", "Mckesson High Volume Solutions Inc.", "Macro Helix LLC", "Mckesson Global Procurement & Sourcing Limited", "Mckesson Provider Technologies, LLC", "US Oncology Research, LLC", "National Rehab Equipment, Inc.", "Unity Oncology, LLC", "McKesson Medical Imaging Company", "McKesson Pharmacy Optimization LLC", "Mckesson Pharmacy Systems LLC", "McKesson Plasma and Biologics LLC", "Northstar Healthcare Limited", "Crocker Plaza Company", "RMCC Cancer Center, LLC", "McKesson Specialty Distribution LLC", "McKesson Specialty Care Distribution LLC", "Sivem Pharmaceuticals ULC", "AccessMED, LLC", "McKesson Nederland B.V.", "McKesson Specialty Arizona Inc.", "ProPharm Limited", "AOR Management Company of Pennsylvania, LLC", "Cascade Medical Supply Inc", "ThriftyMed, Inc", "PSS Service Inc", "PSS Holding Inc", "Proclaim, IncPhysician Sales & Service PartnershipThriftyMed, IncPSS Global Holdings", "Cascade Medical Supply IncGulf South Medical Supply, IncPSS Service IncPSS HK1 Ltd", "PSS Holding IncPSS China Sourcing LtdPSS Global Sourcing LtdPSS Global Sourcing Hong Kong Ltd", "Ancillary Management Solutions IncPSS China Sourcing Shanghai Representative OfficePSS Global Sourcing CBTHighpoint Healthcare Distribution, Inc.", "R&J MedicalWorldMed Shared Services, IncActivus Healthcare Solutions Inc", "Rexall", "Uniprix", "Well.ca", "Medicine Shoppe Canada Inc.", "Pharmacie Affiliee A Proxim"]
+    company = Company.create(name: params[:company])
+    companies = get_subs(company)
+    # companies = ["PSS World Medical", "McKesson Canada", "CoverMyMeds", "McKesson Medical-Surgical Inc.", "RelayHealth", "Uniprix", "Rexall", "Per-Se Technologies", "Medical Specialties Distributors, LLC", "CGSF Funding Corporation", "Norsk Medisinaldepot", "McKesson UK Finance I Limited", "LloydsPharmacy", "Laboratory Supply Company, Inc.", "MED3000, Inc.", "McKesson Corporation", "Onmark, Inc.", "IMcKesson", "Cypress Medical Products LLC", "Nadro S.A. de C.V.", "McKesson International Holdings Ltd", "Nexcura", "McKesson Specialty Health", "Physician Sales & Service, Inc.", "PST Services, Inc.", "Mckesson High Volume Solutions Inc.", "Macro Helix LLC", "Mckesson Global Procurement & Sourcing Limited", "Mckesson Provider Technologies, LLC", "US Oncology Research, LLC", "National Rehab Equipment, Inc.", "Unity Oncology, LLC", "McKesson Medical Imaging Company", "McKesson Pharmacy Optimization LLC", "Mckesson Pharmacy Systems LLC", "McKesson Plasma and Biologics LLC", "Northstar Healthcare Limited", "Crocker Plaza Company", "RMCC Cancer Center, LLC", "McKesson Specialty Distribution LLC", "McKesson Specialty Care Distribution LLC", "Sivem Pharmaceuticals ULC", "AccessMED, LLC", "McKesson Nederland B.V.", "McKesson Specialty Arizona Inc.", "ProPharm Limited", "AOR Management Company of Pennsylvania, LLC", "Cascade Medical Supply Inc", "ThriftyMed, Inc", "PSS Service Inc", "PSS Holding Inc", "Proclaim, IncPhysician Sales & Service PartnershipThriftyMed, IncPSS Global Holdings", "Cascade Medical Supply IncGulf South Medical Supply, IncPSS Service IncPSS HK1 Ltd", "PSS Holding IncPSS China Sourcing LtdPSS Global Sourcing LtdPSS Global Sourcing Hong Kong Ltd", "Ancillary Management Solutions IncPSS China Sourcing Shanghai Representative OfficePSS Global Sourcing CBTHighpoint Healthcare Distribution, Inc.", "R&J MedicalWorldMed Shared Services, IncActivus Healthcare Solutions Inc", "Rexall", "Uniprix", "Well.ca", "Medicine Shoppe Canada Inc.", "Pharmacie Affiliee A Proxim"]
 
     puts companies.to_s
 
@@ -50,7 +51,7 @@ class CompanyController < ApplicationController
   private
 
   def get_subs(company)
-    @driver.navigate.to 'http://www.google.com/search?q=' + company.to_s + '+subsidiaries'
+    @driver.navigate.to 'http://www.google.com/search?q=' + company[:name].to_s + '+subsidiaries'
     p @driver.title
     cards_xpath = "/html/body/div[7]/div[3]/div[5]/div/div[2]/div/div/g-scrolling-carousel/div[1]/div/a"
     empty_card_xpath = "/html/body/div[7]/div[3]/div[5]/div/div/div/div/div/div/div[2]/div/g-scrolling-carousel/div[1]/div/div"
@@ -58,8 +59,9 @@ class CompanyController < ApplicationController
     companies = @driver.execute_script("x = document.evaluate('#{cards_xpath}', document, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null); res = []; while(y = x.iterateNext()) {res.push(y.textContent)}; return res")
     companies = @driver.execute_script("x = document.evaluate('#{empty_card_xpath}', document, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null); res = []; while(y = x.iterateNext()) {res.push(y.textContent)}; return res") if companies.empty?
     unless companies.empty?
-      companies.each do |company|
-        companies += get_subs(company)
+      companies.each do |child_company_name|
+        child_company = Company.create(name: child_company_name, parent_company: company)
+        companies += get_subs(child_company)
       end
     end
     companies
@@ -129,8 +131,9 @@ class CompanyController < ApplicationController
       description = line[3]
       url = line[4]
 
-      company = Company.create(name: name, description: description)
-      Domain.create(urls: [url], company: company)
+      company = Company.where("lower(name) = ?", name.downcase).first
+      company.update(description: description)
+      Domain.create(url: url, company: company)
     end
   end
 

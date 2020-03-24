@@ -18,12 +18,14 @@ ActiveRecord::Schema.define(version: 2020_02_26_212535) do
   create_table "companies", force: :cascade do |t|
     t.string "name"
     t.string "description"
+    t.bigint "parent_company_id"
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
+    t.index ["parent_company_id"], name: "index_companies_on_parent_company_id"
   end
 
   create_table "domains", force: :cascade do |t|
-    t.string "urls", default: [], array: true
+    t.string "url"
     t.bigint "company_id", null: false
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
