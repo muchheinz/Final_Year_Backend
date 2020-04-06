@@ -48,6 +48,57 @@ class CompanyController < ApplicationController
     render plain: "Hello"
   end
 
+  def domain_info
+    #Get IP
+    domain = "www.mckesson.com"
+    ip_url = URI("https://api.shodan.io/dns/resolve?hostnames=" + domain + "&key=***REMOVED***")
+
+    ip_https = Net::HTTP.new(ip_url.host, ip_url.port);
+    ip_https.use_ssl = true
+
+    request = Net::HTTP::Get.new(ip_url)
+
+    response = ip_https.request(request)
+    puts response.read_body
+
+    ip_data = JSON.parse(response.read_body)
+
+    ip_address = ip_data[domain]
+    puts "IP ADDRESS" + ip_address.to_s
+
+
+    url = URI("https://api.shodan.io/shodan/host/" + ip_address + "?key=***REMOVED***")
+
+    https = Net::HTTP.new(url.host, url.port);
+    https.use_ssl = true
+
+    request = Net::HTTP::Get.new(url)
+
+    response = https.request(request)
+    puts response.read_body
+
+    domain_data = JSON.parse(response.read_body)
+
+    latitude = domain_data["latitude"]
+    longitude = domain_data["longitude"]
+    country = domain_data["country_name"]
+    ports = domain_data["ports"]
+
+    vulnerabilities = []
+
+    domain_data["data"].each do |data|
+      unless data["opts"]["vulns"].nil?
+        vulnerabilities += data["opts"]["vulns"]
+      end
+    end
+
+    puts "Location : " + latitude.to_s + " " + longitude.to_s
+    puts "Country : " + country.to_s
+    puts "Vulns : " + vulnerabilities.to_s
+    puts "Ports : " + ports.to_s
+
+  end
+
   private
 
   def get_subs(company)
@@ -66,8 +117,6 @@ class CompanyController < ApplicationController
     end
     companies
   end
-
-  private
 
   def authorize
     client_id = Google::Auth::ClientId.from_file CREDENTIALS_PATH
