@@ -1,4 +1,7 @@
-class CompanyController < ApplicationController
+class ScrapeJob < ApplicationJob
+  queue_as :default
+  sidekiq_options retry: 0
+
   require "google/apis/sheets_v4"
   require "googleauth"
   require "googleauth/stores/file_token_store"
@@ -21,48 +24,28 @@ class CompanyController < ApplicationController
   SCOPE = Google::Apis::SheetsV4::AUTH_SPREADSHEETS
   SPREADSHEET_ID = "***REMOVED***"
 
-  def show
-    company = Company.find_by(name: params[:id])
-    render json: {} and return if company.nil?
-    render json: {companies: [company, company.children]}
-  end
+  def perform(args)
+    options = Selenium::WebDriver::Firefox::Options.new
+    # options.add_argument("--no-sandbox")
+    options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36")
+    options.add_argument("--headless")
+    Selenium::WebDriver::Firefox::Service.driver_path = "/home/ciara/Desktop/drivers/geckodriver"
 
-  def scrape
-    job = Job.find_by(query: params[:company])
-    unless params[:force]
-      render json: {in_progress: !job[:completed]} and return unless job.nil?
-    end
+    @driver = Selenium::WebDriver.for :firefox, options: options
+    company = Company.find_or_create_by(name: args[:company_name])
+    companies = get_subs(company)
 
-    # options = Selenium::WebDriver::Firefox::Options.new
-    # # options.add_argument("--no-sandbox")
-    # options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36")
-    # options.add_argument("--headless")
-    # Selenium::WebDriver::Firefox::Service.driver_path = "/home/ciara/Desktop/drivers/geckodriver"
-    #
-    # @driver = Selenium::WebDriver.for :firefox, options: options
-    # company = Company.find_or_create_by(name: params[:company])
-    # companies = get_subs(company)
-    #
-    # companies.append(company.name)
-    # # companies = ["PSS World Medical", "McKesson Canada", "CoverMyMeds", "McKesson Medical-Surgical Inc.", "RelayHealth", "Uniprix", "Rexall", "Per-Se Technologies", "Medical Specialties Distributors, LLC", "CGSF Funding Corporation", "Norsk Medisinaldepot", "McKesson UK Finance I Limited", "LloydsPharmacy", "Laboratory Supply Company, Inc.", "MED3000, Inc.", "McKesson Corporation", "Onmark, Inc.", "IMcKesson", "Cypress Medical Products LLC", "Nadro S.A. de C.V.", "McKesson International Holdings Ltd", "Nexcura", "McKesson Specialty Health", "Physician Sales & Service, Inc.", "PST Services, Inc.", "Mckesson High Volume Solutions Inc.", "Macro Helix LLC", "Mckesson Global Procurement & Sourcing Limited", "Mckesson Provider Technologies, LLC", "US Oncology Research, LLC", "National Rehab Equipment, Inc.", "Unity Oncology, LLC", "McKesson Medical Imaging Company", "McKesson Pharmacy Optimization LLC", "Mckesson Pharmacy Systems LLC", "McKesson Plasma and Biologics LLC", "Northstar Healthcare Limited", "Crocker Plaza Company", "RMCC Cancer Center, LLC", "McKesson Specialty Distribution LLC", "McKesson Specialty Care Distribution LLC", "Sivem Pharmaceuticals ULC", "AccessMED, LLC", "McKesson Nederland B.V.", "McKesson Specialty Arizona Inc.", "ProPharm Limited", "AOR Management Company of Pennsylvania, LLC", "Cascade Medical Supply Inc", "ThriftyMed, Inc", "PSS Service Inc", "PSS Holding Inc", "Proclaim, IncPhysician Sales & Service PartnershipThriftyMed, IncPSS Global Holdings", "Cascade Medical Supply IncGulf South Medical Supply, IncPSS Service IncPSS HK1 Ltd", "PSS Holding IncPSS China Sourcing LtdPSS Global Sourcing LtdPSS Global Sourcing Hong Kong Ltd", "Ancillary Management Solutions IncPSS China Sourcing Shanghai Representative OfficePSS Global Sourcing CBTHighpoint Healthcare Distribution, Inc.", "R&J MedicalWorldMed Shared Services, IncActivus Healthcare Solutions Inc", "Rexall", "Uniprix", "Well.ca", "Medicine Shoppe Canada Inc.", "Pharmacie Affiliee A Proxim"]
-    #
-    # puts companies.to_s
-    #
-    # save_companies(companies)
-    # @driver.quit
-    # run_phantom
-    #
-    # job = Job.find_by(query: params[:company])
-    # job.update_attribute(:completed, true) unless job.nil?
+    companies.append(company.name)
+    # companies = ["PSS World Medical", "McKesson Canada", "CoverMyMeds", "McKesson Medical-Surgical Inc.", "RelayHealth", "Uniprix", "Rexall", "Per-Se Technologies", "Medical Specialties Distributors, LLC", "CGSF Funding Corporation", "Norsk Medisinaldepot", "McKesson UK Finance I Limited", "LloydsPharmacy", "Laboratory Supply Company, Inc.", "MED3000, Inc.", "McKesson Corporation", "Onmark, Inc.", "IMcKesson", "Cypress Medical Products LLC", "Nadro S.A. de C.V.", "McKesson International Holdings Ltd", "Nexcura", "McKesson Specialty Health", "Physician Sales & Service, Inc.", "PST Services, Inc.", "Mckesson High Volume Solutions Inc.", "Macro Helix LLC", "Mckesson Global Procurement & Sourcing Limited", "Mckesson Provider Technologies, LLC", "US Oncology Research, LLC", "National Rehab Equipment, Inc.", "Unity Oncology, LLC", "McKesson Medical Imaging Company", "McKesson Pharmacy Optimization LLC", "Mckesson Pharmacy Systems LLC", "McKesson Plasma and Biologics LLC", "Northstar Healthcare Limited", "Crocker Plaza Company", "RMCC Cancer Center, LLC", "McKesson Specialty Distribution LLC", "McKesson Specialty Care Distribution LLC", "Sivem Pharmaceuticals ULC", "AccessMED, LLC", "McKesson Nederland B.V.", "McKesson Specialty Arizona Inc.", "ProPharm Limited", "AOR Management Company of Pennsylvania, LLC", "Cascade Medical Supply Inc", "ThriftyMed, Inc", "PSS Service Inc", "PSS Holding Inc", "Proclaim, IncPhysician Sales & Service PartnershipThriftyMed, IncPSS Global Holdings", "Cascade Medical Supply IncGulf South Medical Supply, IncPSS Service IncPSS HK1 Ltd", "PSS Holding IncPSS China Sourcing LtdPSS Global Sourcing LtdPSS Global Sourcing Hong Kong Ltd", "Ancillary Management Solutions IncPSS China Sourcing Shanghai Representative OfficePSS Global Sourcing CBTHighpoint Healthcare Distribution, Inc.", "R&J MedicalWorldMed Shared Services, IncActivus Healthcare Solutions Inc", "Rexall", "Uniprix", "Well.ca", "Medicine Shoppe Canada Inc.", "Pharmacie Affiliee A Proxim"]
 
-    sjob = ScrapeJob.perform_later(company_name: params[:company])
-    if job.nil?
-      Job.create(query: params[:company], job: sjob.job_id, completed: false)
-    else
-      job.update(completed: false)
-    end
+    puts companies.to_s
 
-    render json: {in_progress: true}
+    save_companies(companies)
+    @driver.quit
+    run_phantom
+
+    job = Job.find_by(query: args[:company_name])
+    job.update_attribute(:completed, true) unless job.nil?
   end
 
   private
